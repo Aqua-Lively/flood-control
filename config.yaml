@@ -1,0 +1,3 @@
+control:
+  limit: 10
+  period: 10

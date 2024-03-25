@@ -1,60 +1,58 @@
 package main
 
-// import (
-// 	"context"
-// 	"errors"
-// 	"fmt"
-// 	"sync"
-// 	"time"
-// )
-
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/go-yaml/yaml"
+	// "gopkg.in/yaml.v2"
+
 	"github.com/gin-gonic/gin"
 )
 
-// func main() {
-// 	// Создаем экземпляр FloodControl
-// 	fc := NewFloodControl()
-
-// 	// Параметры для проверки флуд-контроля
-// 	userID := int64(123)
-// 	N := 60 // Период времени в секундах
-// 	K := 10 // Количество разрешенных вызовов за период времени N
-
-// 	// Проверяем флуд-контроль
-// 	for i := 0; i < 100; i++ {
-// 		result, err := fc.Check(context.Background(), userID)
-// 		if err != nil {
-// 			fmt.Printf("Error checking flood control: %v\n", err)
-// 		} else {
-// 			fmt.Printf("Check result: %v\n", result)
-// 		}
-// 		time.Sleep(time.Duration(N/10) * time.Second)
-// 	}
-// }
-
-func main() {
-	// Создаем новый экземпляр Gin
-	router := gin.Default()
-
-	// Определяем маршрут для обработки GET-запросов на "/api/hello"
-	router.GET("/api/hello", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "Hello, World!"})
-	})
-
-	// Запускаем сервер на порту 8080
-	router.Run(":8080")
+type FloodControlConfig struct {
+	Limit  int           `yaml:"limit"`
+	Period time.Duration `yaml:"period"`
 }
 
-type FloodControlConfig struct {
-	Limit  int
-	Period time.Duration
+func main() {
+
+	yamlFile, err := ioutil.ReadFile("config.yaml")
+	if err != nil {
+		log.Fatalf("Не удалось прочитать файл YAML: %v", err)
+	}
+
+	router := gin.Default()
+
+	var config FloodControlConfig
+	err = yaml.Unmarshal(yamlFile, &config)
+	if err != nil {
+		log.Fatalf("Не удалось декодировать YAML: %v", err)
+	}
+
+	fmt.Println(config)
+
+	fc := NewFloodControl(config)
+
+	userID := int64(123)
+
+	router.GET("/api/flood", func(c *gin.Context) {
+
+		result, err := fc.Check(context.Background(), userID)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"status": err.Error()})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"status": result})
+		}
+	})
+
+	router.Run(":8080")
 }
 
 type FloodControl interface {
