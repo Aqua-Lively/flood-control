@@ -3,17 +3,15 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
-	"github.com/go-yaml/yaml"
-	// "gopkg.in/yaml.v2"
-
 	"github.com/gin-gonic/gin"
+	"gopkg.in/yaml.v2"
 )
 
 type FloodControlConfig struct {
@@ -23,7 +21,7 @@ type FloodControlConfig struct {
 
 func main() {
 
-	yamlFile, err := ioutil.ReadFile("config.yaml")
+	yamlFile, err := os.ReadFile("config.yaml")
 	if err != nil {
 		log.Fatalf("Не удалось прочитать файл YAML: %v", err)
 	}
@@ -35,14 +33,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("Не удалось декодировать YAML: %v", err)
 	}
-
-	fmt.Println(config)
+	config.Period = config.Period * time.Second
 
 	fc := NewFloodControl(config)
 
-	userID := int64(123)
-
-	router.GET("/api/flood", func(c *gin.Context) {
+	router.GET("/api/flood/:userID", func(c *gin.Context) {
+		userID, err := strconv.ParseInt(c.Param("userID"), 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID"})
+			return
+		}
 
 		result, err := fc.Check(context.Background(), userID)
 		if err != nil {
